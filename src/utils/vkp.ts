@@ -5,9 +5,9 @@ import { VkpLexer, type VkpTokenType } from '@sie-js/vkp/dist/src/lexer.js';
 type Style = Parameters<typeof styleText>[0];
 
 const TOKEN_STYLES: Partial<Record<VkpTokenType, Style>> = {
-	COMMENT:			'dim',
-	MULTILINE_COMMENT:	'dim',
-	UNFINISHED_COMMENT:	'dim',
+	COMMENT:			'gray',
+	MULTILINE_COMMENT:	'gray',
+	UNFINISHED_COMMENT:	'gray',
 	PRAGMA:				'magenta',
 	OFFSET:				'magenta',
 	ADDRESS:			'yellow',
@@ -35,5 +35,5 @@ export function renderPatchCode(text: string): string {
 			style = token.col < (newDataColumns.get(token.line) ?? 0) ? 'red' : 'green';
 		result += token.text.split('\n').map((part) => part && style ? styleText(style, part) : part).join('\n');
 	}
-	return result.split('\n').map((line) => `${styleText('dim', '│')} ${line}`).join('\n');
+	return result;
 }
