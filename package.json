@@ -1,0 +1,46 @@
+{
+	"name": "@sie-js/kibab-tool",
+	"version": "1.0.0",
+	"description": "CLI tool for patches.kibab.com.",
+	"bin": {
+		"kibab-tool": "./dist/src/cli.js"
+	},
+	"repository": {
+		"url": "git+https://github.com/siemens-mobile-hacks/kibab-tool.git"
+	},
+	"type": "module",
+	"main": "dist/src/index.js",
+	"types": "dist/src/index.d.ts",
+	"files": [
+		"./dist/src/*"
+	],
+	"scripts": {
+		"build": "tsc",
+		"watch": "tsc -w",
+		"test": "tsc && vitest run"
+	},
+	"imports": {
+		"#src/*": {
+			"source": "./src/*",
+			"default": "./dist/src/*"
+		},
+		"#tests/*": {
+			"source": "./tests/*",
+			"default": "./dist/tests/*"
+		}
+	},
+	"author": "kirill.zhumarin@gmail.com",
+	"license": "MIT",
+	"packageManager": "pnpm@11.26.0",
+	"dependencies": {
+		"@inquirer/prompts": "^8.7.4",
+		"cheerio": "^1.2.0",
+		"commander": "^15.0.0",
+		"iconv-lite": "^0.7.3"
+	},
+	"devDependencies": {
+		"@types/node": "^26.6.5",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.5"
+	}
+}
