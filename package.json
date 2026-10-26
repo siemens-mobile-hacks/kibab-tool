@@ -1,6 +1,6 @@
 {
 	"name": "@sie-js/kibab-tool",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "CLI tool for patches.kibab.com.",
 	"bin": {
 		"kibab-tool": "./dist/src/cli.js"
