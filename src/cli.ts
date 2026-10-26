@@ -6,6 +6,12 @@ import { cliLogin, cliLogout } from '#src/cli/auth.js';
 import { cliModels, cliPatches, cliSearch } from '#src/cli/list.js';
 import { addPatchEditOptions, addPatchOptions, cliPatchAdd, cliPatchEdit, cliPatchGet } from '#src/cli/patch.js';
 
+process.stdout.on('error', (e: NodeJS.ErrnoException) => {
+	if (e.code != 'EPIPE')
+		throw e;
+	process.exit();
+});
+
 program
 	.name('kibab-tool')
 	.version(getVersion(), '-v, --version')

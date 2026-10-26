@@ -1,11 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { styleText } from 'node:util';
 import { Option, type Command } from 'commander';
 import { KIBAB_URL, KibabAPI, KibabError, type KibabFile, type KibabPatchFields, type KibabPatchFiles, type KibabPatchForm } from '#src/KibabAPI.js';
 import { loadSession } from '#src/session.js';
 import { AppCommandValidateError, type AppCommand } from '#src/utils/command.js';
 import { printJson, type JsonOptions } from '#src/utils/json.js';
 import { readTextFile } from '#src/utils/file.js';
+import { renderBBCode } from '#src/utils/bbcode.js';
+import { renderPatchCode } from '#src/utils/vkp.js';
 
 interface PatchTextOptions {
 	sw?: string;
@@ -66,6 +69,28 @@ const TEXT_OPTIONS: Record<keyof PatchTextOptions, string> = {
 
 const ACTION_FIELDS = ['is_rss', 'no_upd_date'];
 
+const FIELD_LABELS: Record<string, string> = {
+	ph_model:		'Model',
+	ph_sw:			'SW',
+	p_name_RU:		'Name (RU)',
+	p_name_EN:		'Name (EN)',
+	p_c:			'Author',
+	p_p:			'Porter',
+	p_r:			'Respect',
+	p_dname:		'File name',
+	p_ver:			'Version',
+	is_beta:		'Release',
+	p_type:			'Type',
+	p_shortdesc:	'Description',
+	p_text:			'Patch',
+	p_dep:			'Depends',
+	p_conf:			'Conflicts',
+	p_old:			'Update of',
+	p_body:			'Insertion for',
+	p_scr:			'Screenshot',
+	p_file:			'Attachment',
+};
+
 const SCREENSHOT_TYPES: Record<string, string> = {
 	'.png':		'image/png',
 	'.gif':		'image/gif',
@@ -123,14 +148,32 @@ export const cliPatchGet: AppCommand<JsonOptions, [string]> = async (id, options
 		printJson(form.fields);
 		return;
 	}
-	for (const [k, v] of Object.entries(form.fields)) {
-		if (/\n/.test(v)) {
-			console.log(`${k}:`);
-			console.log(normalizeValue(v).replace(/^/gm, '\t'));
-		} else {
-			console.log(`${k}: ${v}`);
-		}
-	}
+	const fields = form.fields;
+	const version = fields.p_ver ? ` v${fields.p_ver}` : '';
+	console.log(styleText('bold', `${fields.p_name_RU}${version}`));
+	if (fields.p_name_EN != fields.p_name_RU)
+		console.log(styleText('bold', `${fields.p_name_EN}${version}`));
+	console.log();
+	const rows: [string, string][] = [
+		['ID', `${fields.id}  ${styleText('dim', `${KIBAB_URL}/patches/details.php5?id=${fields.id}`)}`],
+		['Model', `${getFieldTitle(form, 'ph_model')}v${fields.ph_sw}`],
+		['Type', getFieldTitle(form, 'p_type')],
+		['Release', getFieldTitle(form, 'is_beta')],
+		['Author', fields.p_c ?? ''],
+		['Porter', fields.p_p ?? ''],
+		['Respect', fields.p_r ?? ''],
+		['File name', `${fields.p_dname}.vkp`],
+		['Depends', fields.p_dep ?? ''],
+		['Conflicts', fields.p_conf ?? ''],
+		['Update of', fields.p_old == '0' ? '' : fields.p_old ?? ''],
+		['Insertion for', fields.p_body == '0' ? '' : fields.p_body ?? ''],
+	];
+	for (const [label, value] of rows.filter(([, value]) => value != ''))
+		console.log(`${styleText('dim', label.padEnd(14))}${value}`);
+	console.log();
+	console.log(renderBBCode(normalizeValue(fields.p_shortdesc ?? '')));
+	console.log();
+	console.log(renderPatchCode(normalizeValue(fields.p_text ?? '')));
 };
 
 export const cliPatchEdit: AppCommand<PatchOptions, [string]> = async (id, options) => {
@@ -149,13 +192,8 @@ export const cliPatchEdit: AppCommand<PatchOptions, [string]> = async (id, optio
 	const changed = changes.length > 0 || uploads.length > 0 || !!options.force;
 	const result = (status: string) => ({ id: patchId, status, changes, uploads, deletes });
 
-	if (!options.json) {
-		printChanges(changes);
-		for (const [field, file] of Object.entries(files))
-			console.info(`${field}: upload ${file.name}`);
-		for (const field of deletes)
-			console.info(`${field}: delete`);
-	}
+	if (!options.json)
+		printChanges(form, changes, files, deletes);
 	if (!changed && !deletes.length) {
 		if (options.json) {
 			printJson(result('unchanged'));
@@ -184,7 +222,7 @@ export const cliPatchEdit: AppCommand<PatchOptions, [string]> = async (id, optio
 	if (options.json) {
 		printJson(result('saved'));
 	} else {
-		console.info(`Patch ${patchId} saved.`);
+		console.info(styleText('green', `Patch ${patchId} saved.`));
 	}
 };
 
@@ -199,7 +237,7 @@ export const cliPatchAdd: AppCommand<PatchOptions> = async (options) => {
 
 	const changes = getChanges(form.fields, fields);
 	if (!options.json)
-		printChanges(changes);
+		printChanges(form, changes, files, []);
 	if (options.dryRun) {
 		if (options.json)
 			printJson({ status: 'dry-run', changes });
@@ -212,7 +250,7 @@ export const cliPatchAdd: AppCommand<PatchOptions> = async (options) => {
 	if (options.json) {
 		printJson({ id: id ? +id : undefined, url: url.href, status: 'saved', changes });
 	} else {
-		console.info(`Patch added: ${url.href}`);
+		console.info(styleText('green', `Patch added: ${url.href}`));
 	}
 };
 
@@ -302,13 +340,26 @@ function getChanges(oldFields: KibabPatchFields, newFields: KibabPatchFields): P
 	return changes;
 }
 
-function printChanges(changes: PatchChange[]): void {
-	for (const change of changes) {
-		if (/\n/.test(change.old + change.new)) {
-			const lines = (str: string) => normalizeValue(str).split('\n').length;
-			console.info(`${change.field}: changed (${lines(change.old)} -> ${lines(change.new)} lines)`);
-		} else {
-			console.info(`${change.field}: ${JSON.stringify(change.old)} -> ${JSON.stringify(change.new)}`);
-		}
-	}
+function getFieldTitle(form: KibabPatchForm, field: string, value = form.fields[field] ?? ''): string {
+	return form.options[field]?.find((o) => o.value == value)?.title ?? value;
+}
+
+function formatLines(text: string): string {
+	const lines = normalizeValue(text).split('\n').length;
+	return `${lines} ${lines == 1 ? 'line' : 'lines'}`;
+}
+
+function printChanges(form: KibabPatchForm, changes: PatchChange[], files: KibabPatchFiles, deletes: string[]): void {
+	const value = (field: string, str: string) => {
+		if (/\n/.test(str))
+			return formatLines(str);
+		return getFieldTitle(form, field, str) || styleText('dim', '(empty)');
+	};
+	const rows: [string, string][] = [
+		...changes.map((c): [string, string] => [c.field, `${styleText('red', value(c.field, c.old))} -> ${styleText('green', value(c.field, c.new))}`]),
+		...Object.entries(files).map(([field, file]): [string, string] => [field, styleText('green', `upload ${file.name}`)]),
+		...deletes.map((field): [string, string] => [field, styleText('red', 'delete')]),
+	];
+	for (const [field, text] of rows)
+		console.info(`${styleText('dim', (FIELD_LABELS[field] ?? field).padEnd(14))}${text}`);
 }

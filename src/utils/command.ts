@@ -1,3 +1,4 @@
+import { styleText } from 'node:util';
 import { KibabError } from '#src/KibabAPI.js';
 import { printJson, type JsonOptions } from '#src/utils/json.js';
 
@@ -16,7 +17,7 @@ export function createAppCommand<T extends JsonOptions, A extends unknown[] = []
 			if (options.json) {
 				printJson({ error: e instanceof Error ? e.message : String(e) });
 			} else if (e instanceof AppCommandValidateError || e instanceof KibabError) {
-				console.error(`ERROR: ${e.message}`);
+				console.error(`${styleText('red', 'ERROR:', { stream: process.stderr })} ${e.message}`);
 			} else {
 				console.error(e);
 			}

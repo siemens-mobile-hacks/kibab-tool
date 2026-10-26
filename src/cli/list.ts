@@ -1,6 +1,8 @@
+import { styleText } from 'node:util';
 import { KibabAPI } from '#src/KibabAPI.js';
 import { AppCommandValidateError, type AppCommand } from '#src/utils/command.js';
 import { printJson, type JsonOptions } from '#src/utils/json.js';
+
 
 export const cliModels: AppCommand<JsonOptions> = async (options) => {
 	const models = await new KibabAPI().getModels();
@@ -8,8 +10,11 @@ export const cliModels: AppCommand<JsonOptions> = async (options) => {
 		printJson(models);
 		return;
 	}
+	const swByModel = new Map<string, string[]>();
 	for (const model of models)
-		console.log(model.name);
+		swByModel.set(model.model, [...swByModel.get(model.model) ?? [], model.sw]);
+	for (const [model, sw] of swByModel)
+		console.log(`${styleText('bold', model.padEnd(8))}${sw.map((v) => `v${v}`).join(', ')}`);
 };
 
 export const cliPatches: AppCommand<JsonOptions, [string]> = async (name, options) => {
@@ -27,7 +32,7 @@ export const cliPatches: AppCommand<JsonOptions, [string]> = async (name, option
 		return;
 	}
 	for (const patch of patches)
-		console.log(`${patch.id}\t${patch.updated}\t${patch.nameRu}`);
+		console.log(`${styleText('yellow', String(patch.id))}  ${styleText('dim', patch.updated)}  ${formatName(patch.nameRu, patch.nameEn)}  ${styleText('dim', `© ${patch.author}`)}`);
 };
 
 export const cliSearch: AppCommand<JsonOptions, [string]> = async (query, options) => {
@@ -37,5 +42,9 @@ export const cliSearch: AppCommand<JsonOptions, [string]> = async (query, option
 		return;
 	}
 	for (const result of results)
-		console.log(`${result.id}\t${result.model}\t${result.nameRu}`);
+		console.log(`${styleText('yellow', String(result.id))}  ${styleText('cyan', result.model.padEnd(9))} ${formatName(result.nameRu, result.nameEn)}`);
 };
+
+function formatName(nameRu: string, nameEn: string): string {
+	return nameEn == nameRu ? styleText('bold', nameRu) : `${styleText('bold', nameRu)} ${styleText('dim', `/ ${nameEn}`)}`;
+}
