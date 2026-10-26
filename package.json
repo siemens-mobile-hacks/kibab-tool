@@ -35,11 +35,13 @@
 	"packageManager": "pnpm@11.26.0",
 	"dependencies": {
 		"@inquirer/prompts": "^8.7.4",
+		"@sie-js/vkp": "^2.0.2",
 		"cheerio": "^1.2.0",
 		"commander": "^15.0.0",
 		"iconv-lite": "^0.7.3"
 	},
 	"devDependencies": {
+		"@types/moo": "^0.5.10",
 		"@types/node": "^26.6.5",
 		"typescript": "^7.0.2",
 		"vitest": "^5.0.5"
