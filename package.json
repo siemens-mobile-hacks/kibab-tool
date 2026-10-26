@@ -20,6 +20,7 @@
 		"test": "tsc && vitest run"
 	},
 	"imports": {
+		"#package.json": "./package.json",
 		"#src/*": {
 			"source": "./src/*",
 			"default": "./dist/src/*"
