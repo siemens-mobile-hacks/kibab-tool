@@ -1,5 +1,4 @@
 import crypto from 'node:crypto';
-import iconv from 'iconv-lite';
 import * as cheerio from 'cheerio';
 
 export type KibabCookies = Record<string, string>;
@@ -73,8 +72,8 @@ export class KibabAPI {
 
 	async login(login: string, password: string): Promise<void> {
 		await this.request('/auth.php5', {
-			contentType: 'application/x-www-form-urlencoded; charset=windows-1251',
-			data: encodeFormData({ action: 'login', login, password }),
+			contentType: 'application/x-www-form-urlencoded',
+			data: new URLSearchParams({ action: 'login', login, password }).toString(),
 		});
 		if (!this.isLoggedIn())
 			throw new KibabError(`Invalid login or password.`);
@@ -122,7 +121,7 @@ export class KibabAPI {
 	}
 
 	async search(query: string): Promise<KibabSearchResult[]> {
-		const $ = cheerio.load(await this.requestHTML(`/patches/search.php5?${encodeFormData({ action: 'search', kw: query })}`));
+		const $ = cheerio.load(await this.requestHTML(`/patches/search.php5?${new URLSearchParams({ action: 'search', kw: query })}`));
 		const results: KibabSearchResult[] = [];
 		for (const link of $('table.maintext a[href*="details.php5?id="]')) {
 			const [nameRu, nameEn] = splitLines($, $(link).html());
@@ -184,7 +183,7 @@ export class KibabAPI {
 	async savePatch(fields: KibabPatchFields, files: KibabPatchFiles = {}): Promise<Response> {
 		const response = await this.request('/patches/addpatch.php5', encodeMultipart(fields, files));
 		if (response.status != 302) {
-			const $ = cheerio.load(iconv.decode(Buffer.from(await response.arrayBuffer()), 'win1251'));
+			const $ = cheerio.load(await response.text());
 			const content = $('#PatchAddForm').closest('td.cnt_td');
 			const errors = content.find('.maintext > font[color=red]').toArray().map((el) => $(el).text().trim());
 			const code = content.contents().first().text().match(/EXC \d+/)?.[0];
@@ -219,7 +218,7 @@ export class KibabAPI {
 
 	async requestHTML(url: string): Promise<string> {
 		const response = await this.request(url);
-		return iconv.decode(Buffer.from(await response.arrayBuffer()), 'win1251');
+		return response.text();
 	}
 
 	private getCookieHeader(): string {
@@ -239,20 +238,6 @@ export class KibabAPI {
 			}
 		}
 	}
-}
-
-function encodeCp1251(str: string): Buffer {
-	const encoded = iconv.encode(str, 'win1251');
-	if (iconv.decode(encoded, 'win1251') != str) {
-		const bad = [...str].find((c) => iconv.decode(iconv.encode(c, 'win1251'), 'win1251') != c);
-		throw new Error(`Character ${JSON.stringify(bad)} can't be encoded to cp1251.`);
-	}
-	return encoded;
-}
-
-function encodeFormData(fields: Record<string, string>): string {
-	const escape = (str: string) => [...encodeCp1251(str)].map((c) => `%${c.toString(16).padStart(2, '0')}`).join('');
-	return Object.entries(fields).map(([k, v]) => `${escape(k)}=${escape(v)}`).join('&');
 }
 
 function splitLines($: cheerio.CheerioAPI, html: string | null): string[] {
@@ -277,8 +262,8 @@ function encodeMultipart(fields: Record<string, string>, files: KibabPatchFiles)
 	const boundary = `----KibabTool${crypto.randomBytes(16).toString('hex')}`;
 	const chunks: Buffer[] = [];
 	for (const [name, value] of Object.entries(fields)) {
-		chunks.push(encodeCp1251(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n`));
-		chunks.push(encodeCp1251(value.replace(/\r?\n/g, '\r\n')));
+		chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n`));
+		chunks.push(Buffer.from(value.replace(/\r?\n/g, '\r\n')));
 		chunks.push(Buffer.from('\r\n'));
 	}
 	// Browsers always send empty file parts, the site emits PHP warnings and breaks the redirect without them
@@ -286,7 +271,7 @@ function encodeMultipart(fields: Record<string, string>, files: KibabPatchFiles)
 	for (const name of fileFields) {
 		const file = files[name] ?? { name: '', contentType: 'application/octet-stream', data: Buffer.alloc(0) };
 		const fileName = file.name.replace(/["\r\n]/g, (c) => encodeURIComponent(c));
-		chunks.push(encodeCp1251(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${fileName}"\r\n`));
+		chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${fileName}"\r\n`));
 		chunks.push(Buffer.from(`Content-Type: ${file.contentType}\r\n\r\n`));
 		chunks.push(file.data);
 		chunks.push(Buffer.from('\r\n'));

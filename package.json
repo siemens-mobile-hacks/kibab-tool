@@ -37,8 +37,7 @@
 		"@inquirer/prompts": "^8.7.4",
 		"@sie-js/vkp": "^2.0.2",
 		"cheerio": "^1.2.0",
-		"commander": "^15.0.0",
-		"iconv-lite": "^0.7.3"
+		"commander": "^15.0.0"
 	},
 	"devDependencies": {
 		"@types/moo": "^0.5.10",

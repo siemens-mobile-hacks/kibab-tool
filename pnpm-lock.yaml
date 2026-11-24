@@ -20,9 +20,6 @@ importers:
       commander:
         specifier: ^15.0.0
         version: 15.0.0
-      iconv-lite:
-        specifier: ^0.7.3
-        version: 0.7.3
     devDependencies:
       '@types/moo':
         specifier: ^0.5.10

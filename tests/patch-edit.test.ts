@@ -55,7 +55,6 @@ describe.skipIf(!E2E)('patch-edit', () => {
 
 	test.each([
 		{ args: ['--ver', '12345678'], error: /Value of p_ver is too long/ },
-		{ args: ['--respect', '😀'], error: /can't be encoded to cp1251/ },
 		{ args: ['--filename', 'bad name'], error: /File name may contain only latin letters/ },
 	])('values changed by the site are rejected before saving: $args', async ({ args, error }) => {
 		expectFailure(await edit(...args), error);

@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import iconv from 'iconv-lite';
 import * as cheerio from 'cheerio';
 import { expect } from 'vitest';
 import { KIBAB_URL, KibabAPI, loadSession, type KibabPatchFields } from '#src/index.js';
@@ -30,6 +29,8 @@ export const PATCH_ID = process.env.KIBAB_TEST_PATCH ?? '';
 export const E2E = process.env.KIBAB_E2E == '1' && PATCH_ID != '';
 
 const CLI = path.join(import.meta.dirname, '..', 'dist', 'src', 'cli.js');
+const CP1251_DECODER = new TextDecoder('windows-1251');
+const CP1251_BYTES = new Map<string, number>(Array.from({ length: 256 }, (_, b) => [CP1251_DECODER.decode(Uint8Array.of(b)), b]));
 
 export function cli(args: string[], options: CliOptions = {}): Promise<CliResult> {
 	return new Promise((resolve, reject) => {
@@ -102,7 +103,7 @@ async function fetchPublic(url: string): Promise<Buffer> {
 }
 
 export async function getDetails(id: string = PATCH_ID): Promise<PatchDetails> {
-	const html = iconv.decode(await fetchPublic(`/patches/details.php5?id=${id}`), 'win1251');
+	const html = (await fetchPublic(`/patches/details.php5?id=${id}`)).toString();
 	const $ = cheerio.load(html.replace(/<br\s*\/?>/gi, '\n'));
 	const content = $('div.maintext').first();
 	const table = content.find('table.maintext').first();
@@ -130,11 +131,11 @@ export function downloadPatch(id: string = PATCH_ID): Promise<Buffer> {
 }
 
 export function encodePatchText(text: string): Buffer {
-	return iconv.encode(text.replace(/\r?\n/g, '\r\n'), 'win1251');
+	return Buffer.from([...text.replace(/\r?\n/g, '\r\n')].map((c) => CP1251_BYTES.get(c)!));
 }
 
 export async function getRssPatchItems(feed: string, id: string = PATCH_ID): Promise<string[]> {
-	const xml = iconv.decode(await fetchPublic(`/rss/${feed}.xml`), 'win1251');
+	const xml = CP1251_DECODER.decode(await fetchPublic(`/rss/${feed}.xml`));
 	const $ = cheerio.load(xml, { xml: true });
 	return $('item guid').toArray()
 		.map((guid) => $(guid).text())
